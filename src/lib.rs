@@ -6,8 +6,8 @@
 //! more efficient, compact representation in many formats.
 //!
 //! When working with such a format, you can opt into specialized handling of
-//! `&[u8]` by wrapping it in `serde_bytes::Bytes` and `Vec<u8>` by wrapping it
-//! in `serde_bytes::ByteBuf`.
+//! `&[u8]` by wrapping it in `serde_human_bytes::Bytes` and `Vec<u8>` by wrapping it
+//! in `serde_human_bytes::ByteBuf`.
 //!
 //! Additionally this crate supports the Serde `with` attribute to enable
 //! efficient handling of `&[u8]` and `Vec<u8>` in structs without needing a
@@ -19,18 +19,18 @@
 //!
 //! #[derive(Deserialize, Serialize)]
 //! struct Efficient<'a> {
-//!     #[serde(with = "serde_bytes")]
+//!     #[serde(with = "serde_human_bytes")]
 //!     bytes: &'a [u8],
 //!
-//!     #[serde(with = "serde_bytes")]
+//!     #[serde(with = "serde_human_bytes")]
 //!     byte_buf: Vec<u8>,
 //!
-//!     #[serde(with = "serde_bytes")]
+//!     #[serde(with = "serde_human_bytes")]
 //!     byte_array: [u8; 314],
 //! }
 //! ```
 
-#![doc(html_root_url = "https://docs.rs/serde_bytes/0.11.15")]
+#![doc(html_root_url = "https://docs.rs/serde_human_bytes/0.11.15")]
 #![cfg_attr(not(feature = "std"), no_std)]
 #![deny(missing_docs)]
 #![allow(
@@ -47,10 +47,8 @@ mod bytes;
 mod de;
 mod ser;
 
-#[cfg(any(feature = "std", feature = "alloc"))]
 mod bytebuf;
 
-#[cfg(feature = "alloc")]
 extern crate alloc;
 
 use serde::{Deserializer, Serializer};
@@ -60,15 +58,14 @@ pub use crate::bytes::Bytes;
 pub use crate::de::Deserialize;
 pub use crate::ser::Serialize;
 
-#[cfg(any(feature = "std", feature = "alloc"))]
 pub use crate::bytebuf::ByteBuf;
 
 /// Serde `serialize_with` function to serialize bytes efficiently.
 ///
 /// This function can be used with either of the following Serde attributes:
 ///
-/// - `#[serde(with = "serde_bytes")]`
-/// - `#[serde(serialize_with = "serde_bytes::serialize")]`
+/// - `#[serde(with = "serde_human_bytes")]`
+/// - `#[serde(serialize_with = "serde_human_bytes::serialize")]`
 ///
 /// ```
 /// # use serde_derive::Serialize;
@@ -76,13 +73,13 @@ pub use crate::bytebuf::ByteBuf;
 ///
 /// #[derive(Serialize)]
 /// struct Efficient<'a> {
-///     #[serde(with = "serde_bytes")]
+///     #[serde(with = "serde_human_bytes")]
 ///     bytes: &'a [u8],
 ///
-///     #[serde(with = "serde_bytes")]
+///     #[serde(with = "serde_human_bytes")]
 ///     byte_buf: Vec<u8>,
 ///
-///     #[serde(with = "serde_bytes")]
+///     #[serde(with = "serde_human_bytes")]
 ///     byte_array: [u8; 314],
 /// }
 /// ```
@@ -98,8 +95,8 @@ where
 ///
 /// This function can be used with either of the following Serde attributes:
 ///
-/// - `#[serde(with = "serde_bytes")]`
-/// - `#[serde(deserialize_with = "serde_bytes::deserialize")]`
+/// - `#[serde(with = "serde_human_bytes")]`
+/// - `#[serde(deserialize_with = "serde_human_bytes::deserialize")]`
 ///
 /// ```
 /// # use serde_derive::Deserialize;
@@ -107,10 +104,10 @@ where
 ///
 /// #[derive(Deserialize)]
 /// struct Packet {
-///     #[serde(with = "serde_bytes")]
+///     #[serde(with = "serde_human_bytes")]
 ///     payload: Vec<u8>,
 ///
-///     #[serde(with = "serde_bytes")]
+///     #[serde(with = "serde_human_bytes")]
 ///     byte_array: [u8; 314],
 /// }
 /// ```

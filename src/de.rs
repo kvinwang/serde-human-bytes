@@ -1,31 +1,30 @@
 use crate::{ByteArray, Bytes};
+use core::convert::TryInto;
 use core::fmt;
 use core::marker::PhantomData;
 use serde::de::{Error, Visitor};
 use serde::Deserializer;
 
-#[cfg(any(feature = "std", feature = "alloc"))]
 use crate::ByteBuf;
 
-#[cfg(any(feature = "std", feature = "alloc"))]
 use core::cmp;
 
-#[cfg(feature = "alloc")]
 use alloc::borrow::Cow;
-#[cfg(all(feature = "std", not(feature = "alloc")))]
-use std::borrow::Cow;
-
-#[cfg(feature = "alloc")]
 use alloc::boxed::Box;
-#[cfg(feature = "alloc")]
 use alloc::string::String;
-#[cfg(feature = "alloc")]
 use alloc::vec::Vec;
 
-#[cfg(any(feature = "std", feature = "alloc"))]
 use serde::de::SeqAccess;
 
-/// Types that can be deserialized via `#[serde(with = "serde_bytes")]`.
+pub(crate) fn deserialize_hex<'de, D>(deserializer: D) -> Result<Vec<u8>, D::Error>
+where
+    D: Deserializer<'de>,
+{
+    let s: String = serde::Deserialize::deserialize(deserializer)?;
+    hex::decode(s).map_err(D::Error::custom)
+}
+
+/// Types that can be deserialized via `#[serde(with = "serde_human_bytes")]`.
 pub trait Deserialize<'de>: Sized {
     #[allow(missing_docs)]
     fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
@@ -38,18 +37,28 @@ impl<'de: 'a, 'a> Deserialize<'de> for &'a [u8] {
     where
         D: Deserializer<'de>,
     {
-        // serde::Deserialize for &[u8] is already optimized, so simply forward to that.
-        serde::Deserialize::deserialize(deserializer)
+        if deserializer.is_human_readable() {
+            // Not supported
+            Err(D::Error::custom(
+                "human readable mode is not supported for &[u8]",
+            ))
+        } else {
+            // serde::Deserialize for &[u8] is already optimized, so simply forward to that.
+            serde::Deserialize::deserialize(deserializer)
+        }
     }
 }
 
-#[cfg(any(feature = "std", feature = "alloc"))]
 impl<'de> Deserialize<'de> for Vec<u8> {
     fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
     where
         D: Deserializer<'de>,
     {
-        Deserialize::deserialize(deserializer).map(ByteBuf::into_vec)
+        if deserializer.is_human_readable() {
+            deserialize_hex(deserializer)
+        } else {
+            Deserialize::deserialize(deserializer).map(ByteBuf::into_vec)
+        }
     }
 }
 
@@ -58,8 +67,14 @@ impl<'de: 'a, 'a> Deserialize<'de> for &'a Bytes {
     where
         D: Deserializer<'de>,
     {
-        // serde::Deserialize for &[u8] is already optimized, so simply forward to that.
-        serde::Deserialize::deserialize(deserializer).map(Bytes::new)
+        if deserializer.is_human_readable() {
+            Err(D::Error::custom(
+                "human readable mode is not supported for &Bytes",
+            ))
+        } else {
+            // serde::Deserialize for &[u8] is already optimized, so simply forward to that.
+            serde::Deserialize::deserialize(deserializer).map(Bytes::new)
+        }
     }
 }
 
@@ -68,8 +83,14 @@ impl<'de, const N: usize> Deserialize<'de> for [u8; N] {
     where
         D: Deserializer<'de>,
     {
-        let arr: ByteArray<N> = serde::Deserialize::deserialize(deserializer)?;
-        Ok(*arr)
+        if deserializer.is_human_readable() {
+            deserialize_hex(deserializer)?
+                .try_into()
+                .map_err(|_| D::Error::custom("invalid array length"))
+        } else {
+            let arr: ByteArray<N> = serde::Deserialize::deserialize(deserializer)?;
+            Ok(*arr)
+        }
     }
 }
 
@@ -78,8 +99,14 @@ impl<'de, const N: usize> Deserialize<'de> for &'de [u8; N] {
     where
         D: Deserializer<'de>,
     {
-        let arr: &ByteArray<N> = serde::Deserialize::deserialize(deserializer)?;
-        Ok(arr)
+        if deserializer.is_human_readable() {
+            Err(D::Error::custom(
+                "human readable mode is not supported for &[u8; N]",
+            ))
+        } else {
+            let arr: &ByteArray<N> = serde::Deserialize::deserialize(deserializer)?;
+            Ok(arr)
+        }
     }
 }
 
@@ -88,8 +115,15 @@ impl<'de, const N: usize> Deserialize<'de> for ByteArray<N> {
     where
         D: Deserializer<'de>,
     {
-        // Via the serde::Deserialize impl for ByteArray.
-        serde::Deserialize::deserialize(deserializer)
+        if deserializer.is_human_readable() {
+            deserialize_hex(deserializer)?
+                .try_into()
+                .map(ByteArray::new)
+                .map_err(|_| D::Error::custom("invalid array length"))
+        } else {
+            // Via the serde::Deserialize impl for ByteArray.
+            serde::Deserialize::deserialize(deserializer)
+        }
     }
 }
 
@@ -98,23 +132,31 @@ impl<'de: 'a, 'a, const N: usize> Deserialize<'de> for &'a ByteArray<N> {
     where
         D: Deserializer<'de>,
     {
-        // Via the serde::Deserialize impl for &ByteArray.
-        serde::Deserialize::deserialize(deserializer)
+        if deserializer.is_human_readable() {
+            Err(D::Error::custom(
+                "human readable mode is not supported for &ByteArray<N>",
+            ))
+        } else {
+            // Via the serde::Deserialize impl for &ByteArray.
+            serde::Deserialize::deserialize(deserializer)
+        }
     }
 }
 
-#[cfg(any(feature = "std", feature = "alloc"))]
 impl<'de> Deserialize<'de> for ByteBuf {
     fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
     where
         D: Deserializer<'de>,
     {
-        // Via the serde::Deserialize impl for ByteBuf.
-        serde::Deserialize::deserialize(deserializer)
+        if deserializer.is_human_readable() {
+            deserialize_hex(deserializer).map(ByteBuf::from)
+        } else {
+            // Via the serde::Deserialize impl for ByteBuf.
+            serde::Deserialize::deserialize(deserializer)
+        }
     }
 }
 
-#[cfg(any(feature = "std", feature = "alloc"))]
 impl<'de: 'a, 'a> Deserialize<'de> for Cow<'a, [u8]> {
     fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
     where
@@ -186,42 +228,59 @@ impl<'de: 'a, 'a> Deserialize<'de> for Cow<'a, [u8]> {
             }
         }
 
-        deserializer.deserialize_bytes(CowVisitor)
+        if deserializer.is_human_readable() {
+            deserialize_hex(deserializer).map(Cow::Owned)
+        } else {
+            deserializer.deserialize_bytes(CowVisitor)
+        }
     }
 }
 
-#[cfg(any(feature = "std", feature = "alloc"))]
 impl<'de: 'a, 'a> Deserialize<'de> for Cow<'a, Bytes> {
     fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
     where
         D: Deserializer<'de>,
     {
-        let cow: Cow<[u8]> = Deserialize::deserialize(deserializer)?;
-        match cow {
-            Cow::Borrowed(bytes) => Ok(Cow::Borrowed(Bytes::new(bytes))),
-            Cow::Owned(bytes) => Ok(Cow::Owned(ByteBuf::from(bytes))),
+        if deserializer.is_human_readable() {
+            deserialize_hex(deserializer)
+                .map(ByteBuf::from)
+                .map(Cow::Owned)
+        } else {
+            let cow: Cow<[u8]> = Deserialize::deserialize(deserializer)?;
+            match cow {
+                Cow::Borrowed(bytes) => Ok(Cow::Borrowed(Bytes::new(bytes))),
+                Cow::Owned(bytes) => Ok(Cow::Owned(ByteBuf::from(bytes))),
+            }
         }
     }
 }
 
-#[cfg(any(feature = "std", feature = "alloc"))]
 impl<'de> Deserialize<'de> for Box<[u8]> {
     fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
     where
         D: Deserializer<'de>,
     {
-        Deserialize::deserialize(deserializer).map(Vec::into_boxed_slice)
+        if deserializer.is_human_readable() {
+            deserialize_hex(deserializer).map(Vec::into_boxed_slice)
+        } else {
+            Deserialize::deserialize(deserializer).map(Vec::into_boxed_slice)
+        }
     }
 }
 
-#[cfg(any(feature = "std", feature = "alloc"))]
 impl<'de> Deserialize<'de> for Box<Bytes> {
     fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
     where
         D: Deserializer<'de>,
     {
-        let bytes: Box<[u8]> = Deserialize::deserialize(deserializer)?;
-        Ok(bytes.into())
+        if deserializer.is_human_readable() {
+            deserialize_hex(deserializer)
+                .map(Vec::into_boxed_slice)
+                .map(Into::into)
+        } else {
+            let bytes: Box<[u8]> = Deserialize::deserialize(deserializer)?;
+            Ok(bytes.into())
+        }
     }
 }
 

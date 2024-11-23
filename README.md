@@ -1,25 +1,11 @@
-# serde\_bytes [![Build Status](https://img.shields.io/github/actions/workflow/status/serde-rs/bytes/ci.yml?branch=master)](https://github.com/serde-rs/bytes/actions?query=branch%3Amaster) [![Latest Version](https://img.shields.io/crates/v/serde_bytes.svg)](https://crates.io/crates/serde_bytes)
+# serde-human-bytes
 
-Wrapper types to enable optimized handling of `&[u8]` and `Vec<u8>`.
+A fork of [serde_bytes](https://github.com/serde-rs/bytes) that serialize bytes to hex string when the format is human readable.
 
 ```toml
 [dependencies]
-serde_bytes = "0.11"
+serde-human-bytes = "0.1"
 ```
-
-## Explanation
-
-Without specialization, Rust forces Serde to treat `&[u8]` just like any
-other slice and `Vec<u8>` just like any other vector. In reality this
-particular slice and vector can often be serialized and deserialized in a
-more efficient, compact representation in many formats.
-
-When working with such a format, you can opt into specialized handling of
-`&[u8]` by wrapping it in `serde_bytes::Bytes` and `Vec<u8>` by wrapping it
-in `serde_bytes::ByteBuf`.
-
-Additionally this crate supports the Serde `with` attribute to enable efficient
-handling of `&[u8]` and `Vec<u8>` in structs without needing a wrapper type.
 
 ## Example
 
@@ -28,10 +14,10 @@ use serde::{Deserialize, Serialize};
 
 #[derive(Deserialize, Serialize)]
 struct Efficient<'a> {
-    #[serde(with = "serde_bytes")]
+    #[serde(with = "serde_human_bytes")]
     bytes: &'a [u8],
 
-    #[serde(with = "serde_bytes")]
+    #[serde(with = "serde_human_bytes")]
     byte_buf: Vec<u8>,
 }
 ```

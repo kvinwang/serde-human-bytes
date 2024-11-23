@@ -1,3 +1,5 @@
+use crate::de::deserialize_hex;
+use crate::ser::serialize_bytes;
 use crate::Bytes;
 use core::borrow::{Borrow, BorrowMut};
 use core::cmp::Ordering;
@@ -15,7 +17,7 @@ use serde::ser::{Serialize, Serializer};
 /// use std::collections::HashMap;
 /// use std::io;
 ///
-/// use serde_bytes::ByteArray;
+/// use serde_human_bytes::ByteArray;
 ///
 /// fn deserialize_bytearrays() -> bincode::Result<()> {
 ///     let example_data = [
@@ -180,7 +182,7 @@ impl<const N: usize> Serialize for ByteArray<N> {
     where
         S: Serializer,
     {
-        serializer.serialize_bytes(&self.bytes)
+        serialize_bytes(&self.bytes, serializer)
     }
 }
 
@@ -232,7 +234,14 @@ impl<'de, const N: usize> Deserialize<'de> for ByteArray<N> {
     where
         D: Deserializer<'de>,
     {
-        deserializer.deserialize_bytes(ByteArrayVisitor::<N>)
+        if deserializer.is_human_readable() {
+            deserialize_hex(deserializer)?
+                .try_into()
+                .map(ByteArray::new)
+                .map_err(|_| D::Error::custom("invalid length"))
+        } else {
+            deserializer.deserialize_bytes(ByteArrayVisitor::<N>)
+        }
     }
 }
 

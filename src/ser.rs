@@ -1,21 +1,26 @@
 use crate::{ByteArray, Bytes};
 use serde::Serializer;
 
-#[cfg(any(feature = "std", feature = "alloc"))]
 use crate::ByteBuf;
 
-#[cfg(feature = "alloc")]
 use alloc::borrow::Cow;
-#[cfg(all(feature = "std", not(feature = "alloc")))]
-use std::borrow::Cow;
 
-#[cfg(feature = "alloc")]
 use alloc::boxed::Box;
 
-#[cfg(feature = "alloc")]
 use alloc::vec::Vec;
 
-/// Types that can be serialized via `#[serde(with = "serde_bytes")]`.
+pub(crate) fn serialize_bytes<S>(bytes: &[u8], serializer: S) -> Result<S::Ok, S::Error>
+where
+    S: Serializer,
+{
+    if serializer.is_human_readable() {
+        serializer.serialize_str(&hex::encode(bytes))
+    } else {
+        serializer.serialize_bytes(bytes)
+    }
+}
+
+/// Types that can be serialized via `#[serde(with = "serde_human_bytes")]`.
 pub trait Serialize {
     #[allow(missing_docs)]
     fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
@@ -28,17 +33,16 @@ impl Serialize for [u8] {
     where
         S: Serializer,
     {
-        serializer.serialize_bytes(self)
+        serialize_bytes(self, serializer)
     }
 }
 
-#[cfg(any(feature = "std", feature = "alloc"))]
 impl Serialize for Vec<u8> {
     fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
     where
         S: Serializer,
     {
-        serializer.serialize_bytes(self)
+        serialize_bytes(self, serializer)
     }
 }
 
@@ -47,7 +51,7 @@ impl Serialize for Bytes {
     where
         S: Serializer,
     {
-        serializer.serialize_bytes(self)
+        serialize_bytes(self, serializer)
     }
 }
 
@@ -56,7 +60,7 @@ impl<const N: usize> Serialize for [u8; N] {
     where
         S: Serializer,
     {
-        serializer.serialize_bytes(self)
+        serialize_bytes(self, serializer)
     }
 }
 
@@ -65,37 +69,34 @@ impl<const N: usize> Serialize for ByteArray<N> {
     where
         S: Serializer,
     {
-        serializer.serialize_bytes(&**self)
+        serialize_bytes(&**self, serializer)
     }
 }
 
-#[cfg(any(feature = "std", feature = "alloc"))]
 impl Serialize for ByteBuf {
     fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
     where
         S: Serializer,
     {
-        serializer.serialize_bytes(self)
+        serialize_bytes(self, serializer)
     }
 }
 
-#[cfg(any(feature = "std", feature = "alloc"))]
 impl<'a> Serialize for Cow<'a, [u8]> {
     fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
     where
         S: Serializer,
     {
-        serializer.serialize_bytes(self)
+        serialize_bytes(self, serializer)
     }
 }
 
-#[cfg(any(feature = "std", feature = "alloc"))]
 impl<'a> Serialize for Cow<'a, Bytes> {
     fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
     where
         S: Serializer,
     {
-        serializer.serialize_bytes(self)
+        serialize_bytes(self, serializer)
     }
 }
 
@@ -111,7 +112,6 @@ where
     }
 }
 
-#[cfg(any(feature = "std", feature = "alloc"))]
 impl<T> Serialize for Box<T>
 where
     T: ?Sized + Serialize,

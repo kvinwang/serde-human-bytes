@@ -4,16 +4,15 @@ use core::fmt::{self, Debug};
 use core::hash::{Hash, Hasher};
 use core::ops::{Deref, DerefMut};
 
-#[cfg(feature = "alloc")]
 use alloc::boxed::Box;
-#[cfg(feature = "alloc")]
 use alloc::string::String;
-#[cfg(feature = "alloc")]
 use alloc::vec::Vec;
 
 use serde::de::{Deserialize, Deserializer, Error, SeqAccess, Visitor};
 use serde::ser::{Serialize, Serializer};
 
+use crate::de::deserialize_hex;
+use crate::ser::serialize_bytes;
 use crate::Bytes;
 
 /// Wrapper around `Vec<u8>` to serialize and deserialize efficiently.
@@ -22,7 +21,7 @@ use crate::Bytes;
 /// use std::collections::HashMap;
 /// use std::io;
 ///
-/// use serde_bytes::ByteBuf;
+/// use serde_human_bytes::ByteBuf;
 ///
 /// fn deserialize_bytebufs() -> bincode::Result<()> {
 ///     let example_data = [
@@ -193,7 +192,7 @@ impl Serialize for ByteBuf {
     where
         S: Serializer,
     {
-        serializer.serialize_bytes(&self.bytes)
+        serialize_bytes(&self.bytes, serializer)
     }
 }
 
@@ -254,6 +253,10 @@ impl<'de> Deserialize<'de> for ByteBuf {
     where
         D: Deserializer<'de>,
     {
-        deserializer.deserialize_byte_buf(ByteBufVisitor)
+        if deserializer.is_human_readable() {
+            deserialize_hex(deserializer).map(Into::into)
+        } else {
+            deserializer.deserialize_byte_buf(ByteBufVisitor)
+        }
     }
 }

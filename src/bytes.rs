@@ -3,16 +3,14 @@ use core::fmt::{self, Debug};
 use core::hash::{Hash, Hasher};
 use core::ops::{Deref, DerefMut};
 
-#[cfg(feature = "alloc")]
 use alloc::borrow::ToOwned;
 
-#[cfg(feature = "alloc")]
 use alloc::boxed::Box;
 
-#[cfg(any(feature = "std", feature = "alloc"))]
+use crate::ser::serialize_bytes;
 use crate::ByteBuf;
 
-use serde::de::{Deserialize, Deserializer};
+use serde::de::{Deserialize, Deserializer, Error};
 use serde::ser::{Serialize, Serializer};
 
 /// Wrapper around `[u8]` to serialize and deserialize efficiently.
@@ -21,7 +19,7 @@ use serde::ser::{Serialize, Serializer};
 /// use std::collections::HashMap;
 /// use std::io;
 ///
-/// use serde_bytes::Bytes;
+/// use serde_human_bytes::Bytes;
 ///
 /// fn print_encoded_cache() -> bincode::Result<()> {
 ///     let mut cache = HashMap::new();
@@ -87,7 +85,6 @@ impl<'a> From<&'a [u8]> for &'a Bytes {
     }
 }
 
-#[cfg(any(feature = "std", feature = "alloc"))]
 impl ToOwned for Bytes {
     type Owned = ByteBuf;
 
@@ -96,7 +93,6 @@ impl ToOwned for Bytes {
     }
 }
 
-#[cfg(any(feature = "std", feature = "alloc"))]
 impl From<Box<[u8]>> for Box<Bytes> {
     fn from(bytes: Box<[u8]>) -> Self {
         unsafe { Box::from_raw(Box::into_raw(bytes) as *mut Bytes) }
@@ -109,7 +105,6 @@ impl Default for &Bytes {
     }
 }
 
-#[cfg(any(feature = "std", feature = "alloc"))]
 impl Default for Box<Bytes> {
     fn default() -> Self {
         ByteBuf::new().into_boxed_bytes()
@@ -163,7 +158,7 @@ impl Serialize for Bytes {
     where
         S: Serializer,
     {
-        serializer.serialize_bytes(&self.bytes)
+        serialize_bytes(&self.bytes, serializer)
     }
 }
 
@@ -172,7 +167,13 @@ impl<'a, 'de: 'a> Deserialize<'de> for &'a Bytes {
     where
         D: Deserializer<'de>,
     {
-        // serde::Deserialize for &[u8] is already optimized, so simply forward to that.
-        Deserialize::deserialize(deserializer).map(Bytes::new)
+        if deserializer.is_human_readable() {
+            Err(D::Error::custom(
+                "human readable mode is not supported for &Bytes",
+            ))
+        } else {
+            // serde::Deserialize for &[u8] is already optimized, so simply forward to that.
+            Deserialize::deserialize(deserializer).map(Bytes::new)
+        }
     }
 }
