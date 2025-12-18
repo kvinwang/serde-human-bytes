@@ -16,6 +16,7 @@ default = ["std"]
 std = ["serde/std"]
 
 [dependencies]
+base64 = { version = "0.13.1", default-features = false, features = ["alloc"] }
 hex = { version = "0.4.3", default-features = false, features = ["alloc"] }
 serde = { version = "1.0.166", default-features = false, features = ["alloc"] }
 

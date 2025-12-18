@@ -1,3 +1,4 @@
+use serde_derive::{Deserialize, Serialize};
 use serde_human_bytes::{ByteArray, ByteBuf, Bytes};
 use serde_test::{assert_de_tokens, assert_ser_tokens, assert_tokens, Configure, Token};
 
@@ -112,4 +113,94 @@ fn test_bytearray() {
     assert_ser_tokens(&bytes_compact, &[Token::Bytes(b"ABC")]);
     assert_ser_tokens(&bytes_compact, &[Token::ByteBuf(b"ABC")]);
     assert_de_tokens(&bytes_compact, &[Token::BorrowedStr("ABC")]);
+}
+
+// ============ Base64 module tests ============
+
+#[derive(Debug, PartialEq, Serialize, Deserialize)]
+struct Base64Example {
+    #[serde(with = "serde_human_bytes::base64")]
+    data: Vec<u8>,
+}
+
+#[derive(Debug, PartialEq, Serialize, Deserialize)]
+struct Base64ArrayExample {
+    #[serde(with = "serde_human_bytes::base64")]
+    data: [u8; 3],
+}
+
+#[test]
+fn test_base64_vec_readable() {
+    // "ABC" (bytes 65, 66, 67) -> base64 "QUJD"
+    let example = Base64Example {
+        data: vec![65, 66, 67],
+    }
+    .readable();
+    assert_tokens(
+        &example,
+        &[
+            Token::Struct {
+                name: "Base64Example",
+                len: 1,
+            },
+            Token::Str("data"),
+            Token::Str("QUJD"),
+            Token::StructEnd,
+        ],
+    );
+}
+
+#[test]
+fn test_base64_vec_compact() {
+    let example = Base64Example {
+        data: vec![65, 66, 67],
+    }
+    .compact();
+    assert_tokens(
+        &example,
+        &[
+            Token::Struct {
+                name: "Base64Example",
+                len: 1,
+            },
+            Token::Str("data"),
+            Token::Bytes(b"ABC"),
+            Token::StructEnd,
+        ],
+    );
+}
+
+#[test]
+fn test_base64_array_readable() {
+    // "ABC" (bytes 65, 66, 67) -> base64 "QUJD"
+    let example = Base64ArrayExample { data: [65, 66, 67] }.readable();
+    assert_tokens(
+        &example,
+        &[
+            Token::Struct {
+                name: "Base64ArrayExample",
+                len: 1,
+            },
+            Token::Str("data"),
+            Token::Str("QUJD"),
+            Token::StructEnd,
+        ],
+    );
+}
+
+#[test]
+fn test_base64_array_compact() {
+    let example = Base64ArrayExample { data: [65, 66, 67] }.compact();
+    assert_tokens(
+        &example,
+        &[
+            Token::Struct {
+                name: "Base64ArrayExample",
+                len: 1,
+            },
+            Token::Str("data"),
+            Token::Bytes(b"ABC"),
+            Token::StructEnd,
+        ],
+    );
 }

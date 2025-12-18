@@ -42,6 +42,7 @@
     clippy::ptr_as_ptr
 )]
 
+pub mod base64;
 mod bytearray;
 mod bytes;
 mod de;
