@@ -1,6 +1,6 @@
 [package]
 name = "serde-human-bytes"
-version = "0.1.1"
+version = "0.1.2"
 authors = ["David Tolnay <dtolnay@gmail.com>", "Kevin Wang<wy721@qq.com>"]
 categories = ["encoding", "no-std"]
 description = "Optimized handling of `&[u8]` and `Vec<u8>` for Serde"
